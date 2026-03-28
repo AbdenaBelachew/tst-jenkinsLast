@@ -7,16 +7,9 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/AbdenaBelachew/tst-jenkinsLast.git'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 bat 'npm install'
-                // use 'sh' if Linux
             }
         }
 
@@ -28,7 +21,7 @@ pipeline {
 
         stage('Archive Build') {
             steps {
-                archiveArtifacts artifacts: 'build/**', fingerprint: true
+                archiveArtifacts artifacts: 'dist/**', fingerprint: true
             }
         }
 
