@@ -6,7 +6,7 @@ function App() {
   const [backendStatus, setBackendStatus] = useState('Checking...')
 
   useEffect(() => {
-    fetch('/api/status')
+    fetch('http://localhost:3001/api/status')
       .then(res => res.json())
       .then(data => setBackendStatus(data.status + ': ' + data.message))
       .catch(err => setBackendStatus('Offline (Make sure backend is running)'))
