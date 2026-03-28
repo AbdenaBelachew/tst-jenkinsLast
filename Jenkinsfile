@@ -73,8 +73,9 @@ pipeline {
                     New-WebApplication -Name $appFolder -Site $site -PhysicalPath $physPath -ApplicationPool "DefaultAppPool"
                     Write-Host "Created IIS Application: $appPath"
                 } else {
-                    Set-ItemProperty -Path $appPath -Name physicalPath -Value $physPath
-                    Write-Host "IIS Application already exists, updated path: $appPath"
+                    # Use Set-WebConfigurationProperty for more reliable updates (avoids "Value cannot be null" provider bug)
+                    Set-WebConfigurationProperty -filter "system.applicationHost/sites/site[@name='$site']/application[@path='/$appFolder']/virtualDirectory[@path='/']" -Name "physicalPath" -Value $physPath
+                    Write-Host "IIS Application already exists, updated physicalPath for: $appPath"
                 }
                 '''
             }
