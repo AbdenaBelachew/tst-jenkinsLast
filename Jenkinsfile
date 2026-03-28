@@ -64,14 +64,17 @@ pipeline {
 
                 # Manage IIS App safely
                 Import-Module WebAdministration
-                $app = "IIS:\\Sites\\$env:FRONTEND_SITE\\$env:FRONTEND_APP"
+                $site = $env:FRONTEND_SITE
+                $appFolder = $env:FRONTEND_APP
+                $physPath = $env:FRONTEND_PATH
+                $appPath = "IIS:\\Sites\\$site\\$appFolder"
 
-                if (-Not (Test-Path $app)) {
-                    New-WebApplication -Name $env:FRONTEND_APP -Site $env:FRONTEND_SITE -PhysicalPath $env:FRONTEND_PATH -ApplicationPool "DefaultAppPool"
-                    Write-Host "Created IIS Application: $app"
+                if (-Not (Test-Path $appPath)) {
+                    New-WebApplication -Name $appFolder -Site $site -PhysicalPath $physPath -ApplicationPool "DefaultAppPool"
+                    Write-Host "Created IIS Application: $appPath"
                 } else {
-                    Set-ItemProperty $app -Name physicalPath -Value $env:FRONTEND_PATH
-                    Write-Host "IIS Application already exists, updated path: $app"
+                    Set-ItemProperty -Path $appPath -Name physicalPath -Value $physPath
+                    Write-Host "IIS Application already exists, updated path: $appPath"
                 }
                 '''
             }
