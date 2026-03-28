@@ -25,5 +25,28 @@ pipeline {
             }
         }
 
+        stage('Deploy to IIS') {
+            steps {
+                powershell '''
+                $source = "${env:WORKSPACE}\\dist"
+                $destination = "C:\\inetpub\\wwwroot\\myapp"
+                if (!(Test-Path $destination)) {
+                    New-Item -Path $destination -ItemType Directory -Force
+                }
+                Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
+                Write-Host "Deployment complete!"
+                '''
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo 'CI/CD pipeline finished successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check logs.'
+        }
     }
 }
