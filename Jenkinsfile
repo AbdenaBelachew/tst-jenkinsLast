@@ -67,28 +67,38 @@ pipeline {
                 powershell '''
                 $source = "${env:WORKSPACE}\\backend"
                 $destination = "C:\\inetpub\\backend\\mybackend"
+                $port = 3001
 
-                # Stop existing node processes (WARNING: stops all node apps)
-                Stop-Process -Name node -ErrorAction SilentlyContinue
+                # Clean up existing processes on port 3001
+                $processId = (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue).OwningProcess
+                if ($processId) {
+                    Write-Host "Killing process on port $port (PID: $processId)..."
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
 
                 if (!(Test-Path $destination)) {
                     New-Item -Path $destination -ItemType Directory -Force
                 }
                 Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
 
-                # Prevent Jenkins from killing the process after build finishes
+                # Prevent Jenkins from killing the process
                 $env:BUILD_ID = "dontKillMe"
 
-                # Start backend in background
-                Start-Process "node" -ArgumentList "$destination\\index.js" -WorkingDirectory $destination
+                # Start backend and redirect logs to a file for debugging
+                Write-Host "Starting backend..."
+                Start-Process "node" -ArgumentList "index.js" -WorkingDirectory $destination -RedirectStandardOutput "$destination\\backend.log" -RedirectStandardError "$destination\\backend_error.log"
                 
-                Write-Host "Waiting for backend to spin up..."
-                Start-Sleep -Seconds 2
-                
-                if (Get-Process -Name node -ErrorAction SilentlyContinue) {
-                    Write-Host "Backend is running!"
+                # Verify if port 3001 is now listening
+                Start-Sleep -Seconds 5
+                if (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue) {
+                    Write-Host "SUCCESS: Backend is listening on port $port!"
                 } else {
-                    Write-Error "Backend failed to start."
+                    Write-Host "ERROR: Backend failed to bind to port $port. Check $destination\\backend_error.log for details."
+                    # Print the error log for visibility if it exists
+                    if (Test-Path "$destination\\backend_error.log") {
+                        Get-Content "$destination\\backend_error.log"
+                    }
+                    exit 1
                 }
                 '''
             }
