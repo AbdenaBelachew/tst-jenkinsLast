@@ -7,52 +7,77 @@ pipeline {
 
     stages {
 
-        stage('Install Dependencies') {
+        stage('Install Frontend Dependencies') {
             steps {
-                bat 'npm install'
+                dir('frontend') {
+                    bat 'npm install'
+                }
             }
         }
 
-        stage('Build Project') {
+        stage('Build Frontend') {
             steps {
-                bat 'npm run build'
+                dir('frontend') {
+                    bat 'npm run build'
+                }
+            }
+        }
+
+        stage('Install Backend Dependencies') {
+            steps {
+                dir('backend') {
+                    bat 'npm install'
+                }
             }
         }
 
         stage('Archive Build') {
             steps {
-                archiveArtifacts artifacts: 'dist/**', fingerprint: true
+                archiveArtifacts artifacts: 'frontend/dist/**', fingerprint: true
             }
         }
 
-        stage('Deploy to IIS') {
+        stage('Deploy Frontend') {
             steps {
                 powershell '''
-                $source = "${env:WORKSPACE}\\dist"
+                $source = "${env:WORKSPACE}\\frontend\\dist"
                 $destination = "C:\\inetpub\\wwwroot\\myapp"
-
-                # Ensure destination folder exists
                 if (!(Test-Path $destination)) {
                     New-Item -Path $destination -ItemType Directory -Force
                 }
-
-                # Copy files
                 Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
-                Write-Host "Files deployed to IIS folder!"
+                Write-Host "Frontend deployed!"
 
-                # Convert to IIS Application
+                # Manage IIS App
                 Import-Module WebAdministration
                 $siteName = "Default Web Site"
                 $appPath = "myapp"
-                $appPoolName = "DefaultAppPool"
-
                 if (-Not (Test-Path "IIS:\\Sites\\$siteName\\$appPath")) {
-                    New-WebApplication -Name $appPath -Site $siteName -PhysicalPath $destination -ApplicationPool $appPoolName
-                    Write-Host "IIS Application '$appPath' created successfully!"
+                    New-WebApplication -Name $appPath -Site $siteName -PhysicalPath $destination -ApplicationPool "DefaultAppPool"
                 } else {
                     Set-ItemProperty "IIS:\\Sites\\$siteName\\$appPath" -Name physicalPath -Value $destination
-                    Write-Host "IIS Application '$appPath' updated successfully!"
                 }
+                '''
+            }
+        }
+
+        stage('Deploy Backend') {
+            steps {
+                powershell '''
+                $source = "${env:WORKSPACE}\\backend"
+                $destination = "C:\\inetpub\\backend\\mybackend"
+
+                # Stop existing node processes (WARNING: stops all node apps)
+                Stop-Process -Name node -ErrorAction SilentlyContinue
+
+                if (!(Test-Path $destination)) {
+                    New-Item -Path $destination -ItemType Directory -Force
+                }
+                Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
+
+                # Start backend in background
+                Start-Process "node" -ArgumentList "$destination\\index.js" -WorkingDirectory $destination
+                Write-Host "Backend deployed and started!"
                 '''
             }
         }
@@ -61,7 +86,7 @@ pipeline {
 
     post {
         success {
-            echo 'CI/CD pipeline finished successfully!'
+            echo 'Full Stack CI/CD pipeline finished successfully!'
         }
         failure {
             echo 'Pipeline failed. Check logs.'

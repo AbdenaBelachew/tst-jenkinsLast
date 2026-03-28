@@ -1,8 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './index.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [backendStatus, setBackendStatus] = useState('Checking...')
+
+  useEffect(() => {
+    fetch('/api/status')
+      .then(res => res.json())
+      .then(data => setBackendStatus(data.status + ': ' + data.message))
+      .catch(err => setBackendStatus('Offline (Make sure backend is running)'))
+  }, [])
 
   return (
     <div className="animate-fade-in" style={{ position: 'relative' }}>
@@ -20,6 +28,10 @@ function App() {
         
         <div className="counter-display">
           {count}
+        </div>
+
+        <div style={{ margin: '1rem 0', padding: '0.5rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', fontSize: '0.9rem', color: backendStatus.includes('Online') ? '#4ade80' : '#f87171' }}>
+          Backend: {backendStatus}
         </div>
         
         <button 
