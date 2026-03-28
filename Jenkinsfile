@@ -76,9 +76,20 @@ pipeline {
                 }
                 Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
 
+                # Prevent Jenkins from killing the process after build finishes
+                $env:BUILD_ID = "dontKillMe"
+
                 # Start backend in background
                 Start-Process "node" -ArgumentList "$destination\\index.js" -WorkingDirectory $destination
-                Write-Host "Backend deployed and started!"
+                
+                Write-Host "Waiting for backend to spin up..."
+                Start-Sleep -Seconds 2
+                
+                if (Get-Process -Name node -ErrorAction SilentlyContinue) {
+                    Write-Host "Backend is running!"
+                } else {
+                    Write-Error "Backend failed to start."
+                }
                 '''
             }
         }
