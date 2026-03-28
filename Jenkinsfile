@@ -30,11 +30,29 @@ pipeline {
                 powershell '''
                 $source = "${env:WORKSPACE}\\dist"
                 $destination = "C:\\inetpub\\wwwroot\\myapp"
+
+                # Ensure destination folder exists
                 if (!(Test-Path $destination)) {
                     New-Item -Path $destination -ItemType Directory -Force
                 }
+
+                # Copy files
                 Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
-                Write-Host "Deployment complete!"
+                Write-Host "Files deployed to IIS folder!"
+
+                # Convert to IIS Application
+                Import-Module WebAdministration
+                $siteName = "Default Web Site"
+                $appPath = "myapp"
+                $appPoolName = "DefaultAppPool"
+
+                if (-Not (Test-Path "IIS:\\Sites\\$siteName\\$appPath")) {
+                    New-WebApplication -Name $appPath -Site $siteName -PhysicalPath $destination -ApplicationPool $appPoolName
+                    Write-Host "IIS Application '$appPath' created successfully!"
+                } else {
+                    Set-ItemProperty "IIS:\\Sites\\$siteName\\$appPath" -Name physicalPath -Value $destination
+                    Write-Host "IIS Application '$appPath' updated successfully!"
+                }
                 '''
             }
         }
