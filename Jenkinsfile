@@ -1,6 +1,13 @@
 pipeline {
     agent any
 
+    environment {
+        FRONTEND_SITE = 'Default Web Site'
+        FRONTEND_APP  = 'myapp'
+        FRONTEND_PATH = 'C:\\inetpub\\wwwroot\\myapp'
+        BACKEND_PATH  = 'C:\\inetpub\\backend\\mybackend'
+    }
+
     tools {
         nodejs 'node18'
     }
@@ -41,22 +48,30 @@ pipeline {
             steps {
                 powershell '''
                 $source = "${env:WORKSPACE}\\frontend\\dist"
-                $destination = "C:\\inetpub\\wwwroot\\myapp"
+                $destination = $env:FRONTEND_PATH
+
                 # Clean up old deployment and web.config (to avoid 500 errors)
                 if (Test-Path "$destination\\web.config") {
                     Remove-Item "$destination\\web.config" -Force
                 }
-                Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
-                Write-Host "Frontend deployed!"
 
-                # Manage IIS App
+                if (!(Test-Path $destination)) {
+                    New-Item -Path $destination -ItemType Directory -Force
+                }
+                
+                Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
+                Write-Host "Frontend files copied to $destination"
+
+                # Manage IIS App safely
                 Import-Module WebAdministration
-                $siteName = "Default Web Site"
-                $appPath = "myapp"
-                if (-Not (Test-Path "IIS:\\Sites\\$siteName\\$appPath")) {
-                    New-WebApplication -Name $appPath -Site $siteName -PhysicalPath $destination -ApplicationPool "DefaultAppPool"
+                $app = "IIS:\\Sites\\$env:FRONTEND_SITE\\$env:FRONTEND_APP"
+
+                if (-Not (Test-Path $app)) {
+                    New-WebApplication -Name $env:FRONTEND_APP -Site $env:FRONTEND_SITE -PhysicalPath $env:FRONTEND_PATH -ApplicationPool "DefaultAppPool"
+                    Write-Host "Created IIS Application: $app"
                 } else {
-                    Set-ItemProperty "IIS:\\Sites\\$siteName\\$appPath" -Name physicalPath -Value $destination
+                    Set-ItemProperty $app -Name physicalPath -Value $env:FRONTEND_PATH
+                    Write-Host "IIS Application already exists, updated path: $app"
                 }
                 '''
             }
@@ -66,7 +81,7 @@ pipeline {
             steps {
                 powershell '''
                 $source = "${env:WORKSPACE}\\backend"
-                $destination = "C:\\inetpub\\backend\\mybackend"
+                $destination = $env:BACKEND_PATH
                 $port = 3001
 
                 # Clean up existing processes on port 3001
@@ -94,7 +109,6 @@ pipeline {
                     Write-Host "SUCCESS: Backend is listening on port $port!"
                 } else {
                     Write-Host "ERROR: Backend failed to bind to port $port. Check $destination\\backend_error.log for details."
-                    # Print the error log for visibility if it exists
                     if (Test-Path "$destination\\backend_error.log") {
                         Get-Content "$destination\\backend_error.log"
                     }
