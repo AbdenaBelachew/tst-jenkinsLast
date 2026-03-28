@@ -42,8 +42,9 @@ pipeline {
                 powershell '''
                 $source = "${env:WORKSPACE}\\frontend\\dist"
                 $destination = "C:\\inetpub\\wwwroot\\myapp"
-                if (!(Test-Path $destination)) {
-                    New-Item -Path $destination -ItemType Directory -Force
+                # Clean up old deployment and web.config (to avoid 500 errors)
+                if (Test-Path "$destination\\web.config") {
+                    Remove-Item "$destination\\web.config" -Force
                 }
                 Copy-Item -Path $source\\* -Destination $destination -Recurse -Force
                 Write-Host "Frontend deployed!"
